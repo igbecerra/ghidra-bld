@@ -49,9 +49,7 @@ import ghidra.app.plugin.core.debug.gui.DebuggerResources.FollowsCurrentThreadAc
 import ghidra.app.plugin.core.debug.gui.action.*;
 import ghidra.app.plugin.core.debug.gui.listing.DebuggerListingPlugin;
 import ghidra.app.plugin.core.debug.service.editing.DebuggerStateEditingServicePlugin;
-import ghidra.app.services.DebuggerStateEditingService;
-import ghidra.app.services.DebuggerStateEditingService.StateEditingMode;
-import ghidra.app.services.TraceRecorder;
+import ghidra.app.services.*;
 import ghidra.async.SwingExecutorService;
 import ghidra.program.model.address.*;
 import ghidra.program.model.lang.Register;
@@ -463,7 +461,7 @@ public class DebuggerMemoryBytesProviderTest extends AbstractGhidraHeadedDebugge
 		traceManager.activateThread(thread);
 		waitForSwing();
 
-		assertViewerBackgroundAt(DebuggerResources.DEFAULT_COLOR_REGISTER_MARKERS,
+		assertViewerBackgroundAt(DebuggerResources.COLOR_REGISTER_MARKERS,
 			memBytesProvider.getByteViewerPanel(), tb.addr(0x00401234));
 	}
 
@@ -510,6 +508,7 @@ public class DebuggerMemoryBytesProviderTest extends AbstractGhidraHeadedDebugge
 		 * Assure ourselves the block under test is not on screen
 		 */
 		waitForPass(() -> {
+			goToDyn(addr(trace, 0x55551800));
 			AddressSetView visible = memBytesProvider.readsMemTrait.getVisible();
 			assertFalse(visible.isEmpty());
 			assertFalse(visible.contains(addr(trace, 0x55550000)));
@@ -561,11 +560,11 @@ public class DebuggerMemoryBytesProviderTest extends AbstractGhidraHeadedDebugge
 		waitForSwing();
 
 		// TODO: Colors should be blended with cursor color....
-		assertViewerBackgroundAt(DebuggerResources.DEFAULT_COLOR_BACKGROUND_STALE,
+		assertViewerBackgroundAt(DebuggerResources.COLOR_BACKGROUND_STALE,
 			memBytesProvider.getByteViewerPanel(), tb.addr(0x00401233));
 		assertViewerBackgroundAt(GhidraOptions.DEFAULT_CURSOR_LINE_COLOR,
 			memBytesProvider.getByteViewerPanel(), tb.addr(0x00401234));
-		assertViewerBackgroundAt(DebuggerResources.DEFAULT_COLOR_BACKGROUND_ERROR,
+		assertViewerBackgroundAt(DebuggerResources.COLOR_BACKGROUND_ERROR,
 			memBytesProvider.getByteViewerPanel(), tb.addr(0x00401235));
 	}
 
@@ -1101,10 +1100,11 @@ public class DebuggerMemoryBytesProviderTest extends AbstractGhidraHeadedDebugge
 			createTargetTraceMapper(mb.testProcess1));
 		Trace trace = recorder.getTrace();
 
-		editingService.setCurrentMode(trace, StateEditingMode.WRITE_TARGET);
+		editingService.setCurrentMode(trace, StateEditingMode.RW_TARGET);
 		DockingActionIf actionEdit = getAction(memBytesPlugin, "Enable/Disable Byteviewer Editing");
 
 		mb.testProcess1.addRegion("exe:.text", mb.rng(0x55550000, 0x5555ffff), "rx");
+		waitRecorder(recorder);
 		waitFor(() -> !trace.getMemoryManager().getAllRegions().isEmpty());
 
 		byte[] data = new byte[4];
@@ -1132,11 +1132,16 @@ public class DebuggerMemoryBytesProviderTest extends AbstractGhidraHeadedDebugge
 			createTargetTraceMapper(mb.testProcess1));
 		Trace trace = recorder.getTrace();
 
-		editingService.setCurrentMode(trace, StateEditingMode.WRITE_TRACE);
+		editingService.setCurrentMode(trace, StateEditingMode.RW_TRACE);
 		DockingActionIf actionEdit = getAction(memBytesPlugin, "Enable/Disable Byteviewer Editing");
 
 		mb.testProcess1.addRegion("exe:.text", mb.rng(0x55550000, 0x5555ffff), "rx");
+		waitRecorder(recorder);
 		waitFor(() -> !trace.getMemoryManager().getAllRegions().isEmpty());
+
+		// Because mode is RW_TRACE, we're not necessarily at recorder's snap
+		traceManager.activateSnap(recorder.getSnap());
+		waitForSwing();
 
 		byte[] data = new byte[4];
 		performAction(actionEdit);
@@ -1174,7 +1179,7 @@ public class DebuggerMemoryBytesProviderTest extends AbstractGhidraHeadedDebugge
 			createTargetTraceMapper(mb.testProcess1));
 		Trace trace = recorder.getTrace();
 
-		editingService.setCurrentMode(trace, StateEditingMode.WRITE_TARGET);
+		editingService.setCurrentMode(trace, StateEditingMode.RW_TARGET);
 
 		mb.testProcess1.addRegion("exe:.text", mb.rng(0x55550000, 0x5555ffff), "rx");
 		waitFor(() -> !trace.getMemoryManager().getAllRegions().isEmpty());

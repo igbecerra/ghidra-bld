@@ -35,7 +35,6 @@ import ghidra.app.plugin.core.debug.gui.watch.DebuggerWatchesProvider.WatchDataS
 import ghidra.app.plugin.core.debug.service.editing.DebuggerStateEditingServicePlugin;
 import ghidra.app.plugin.core.debug.service.modules.DebuggerStaticMappingServicePlugin;
 import ghidra.app.services.*;
-import ghidra.app.services.DebuggerStateEditingService.StateEditingMode;
 import ghidra.dbg.model.TestTargetRegisterBankInThread;
 import ghidra.docking.settings.FormatSettingsDefinition;
 import ghidra.docking.settings.Settings;
@@ -298,7 +297,7 @@ public class DebuggerWatchesProviderTest extends AbstractGhidraHeadedDebuggerGUI
 	}
 
 	@Test
-	public void testLiveCausesReads() throws Exception {
+	public void testLiveCausesReads() throws Throwable {
 		createTestModel();
 		mb.createTestProcessesAndThreads();
 		bank = mb.testThread1.addRegisterBank();
@@ -312,6 +311,7 @@ public class DebuggerWatchesProviderTest extends AbstractGhidraHeadedDebuggerGUI
 
 		recorder = modelService.recordTarget(mb.testProcess1,
 			createTargetTraceMapper(mb.testProcess1), ActionSource.AUTOMATIC);
+		waitRecorder(recorder);
 		Trace trace = recorder.getTrace();
 		TraceThread thread = waitForValue(() -> recorder.getTraceThread(mb.testThread1));
 
@@ -350,7 +350,7 @@ public class DebuggerWatchesProviderTest extends AbstractGhidraHeadedDebuggerGUI
 		assertFalse(row.isRawValueEditable());
 		traceManager.openTrace(tb.trace);
 		traceManager.activateThread(thread);
-		editingService.setCurrentMode(tb.trace, StateEditingMode.WRITE_EMULATOR);
+		editingService.setCurrentMode(tb.trace, StateEditingMode.RW_EMULATOR);
 		waitForWatches();
 
 		assertNoErr(row);
@@ -384,7 +384,7 @@ public class DebuggerWatchesProviderTest extends AbstractGhidraHeadedDebuggerGUI
 
 		traceManager.openTrace(tb.trace);
 		traceManager.activateThread(thread);
-		editingService.setCurrentMode(tb.trace, StateEditingMode.WRITE_EMULATOR);
+		editingService.setCurrentMode(tb.trace, StateEditingMode.RW_EMULATOR);
 		waitForWatches();
 
 		performAction(watchesProvider.actionEnableEdits);
@@ -547,7 +547,7 @@ public class DebuggerWatchesProviderTest extends AbstractGhidraHeadedDebuggerGUI
 
 		traceManager.openTrace(trace);
 		traceManager.activateThread(thread);
-		editingService.setCurrentMode(trace, StateEditingMode.WRITE_TARGET);
+		editingService.setCurrentMode(trace, StateEditingMode.RW_TARGET);
 		waitForSwing();
 
 		performAction(watchesProvider.actionAdd);

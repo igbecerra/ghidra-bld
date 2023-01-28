@@ -179,8 +179,14 @@ public class DbgModel2TargetRootImpl extends DbgModel2DefaultTargetModelRoot
 				System.err.println("processAdded - null");
 				return;
 			}
+			DbgModelTargetProcessContainer container =
+				(DbgModelTargetProcessContainer) targetProcess.getParent();
+			DelegateDbgModel2TargetObject delegate =
+				(DelegateDbgModel2TargetObject) container.getDelegate();
+			delegate.init();
+
 			broadcast().event(getProxy(), null, TargetEventType.PROCESS_CREATED,
-				"Process " + proc.getId() + " started " + "notepad.exe" + " pid=" + proc.getPid(),
+				"Process " + proc.getId() + " started " + " pid=" + proc.getPid(),
 				List.of(targetProcess));
 		});
 	}
@@ -193,6 +199,12 @@ public class DbgModel2TargetRootImpl extends DbgModel2DefaultTargetModelRoot
 				System.err.println("threadCreated - null");
 				return;
 			}
+			DbgModelTargetThreadContainer container =
+				(DbgModelTargetThreadContainer) targetThread.getParent();
+			DelegateDbgModel2TargetObject cdelegate =
+				(DelegateDbgModel2TargetObject) container.getDelegate();
+			cdelegate.init();
+
 			broadcast().event(getProxy(), targetThread, TargetEventType.THREAD_CREATED,
 				"Thread " + thread.getId() + " started", List.of(targetThread));
 			DelegateDbgModel2TargetObject delegate =
@@ -273,8 +285,9 @@ public class DbgModel2TargetRootImpl extends DbgModel2DefaultTargetModelRoot
 		List<String> xpath = new ArrayList<>();
 		xpath.addAll(objPath);
 		xpath.addAll(ext);
+		// NB: fetchModelObject may have to be called with false
 		return AsyncUtils.sequence(TypeSpec.cls(DbgModelTargetObject.class)).then(seq -> {
-			getModel().fetchModelObject(xpath).handle(seq::next);
+			getModel().fetchModelObject(xpath, false).handle(seq::next);
 		}, TypeSpec.cls(TargetObject.class)).then((pobj, seq) -> {
 			if (pobj == null) {
 				seq.exit();
