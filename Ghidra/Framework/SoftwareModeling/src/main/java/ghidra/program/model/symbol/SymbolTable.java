@@ -512,7 +512,7 @@ public interface SymbolTable {
 	public SymbolIterator getDefinedSymbols();
 
 	/**
-	 * Get the external symbol with the given name.  The first occurance of the named symbol found
+	 * Get the external symbol with the given name.  The first occurrence of the named symbol found
 	 * within any external namespace will be returned.  If all matching symbols need to be
 	 * considered the {@link #getExternalSymbols(String)} should be used.
 	 * 
@@ -593,7 +593,7 @@ public interface SymbolTable {
 	/**
 	 * Get primary label and function symbols within the given address set.  
 	 * <p>
-	 * <b>NOTE:</b> All external symbols will be omiitted unless the full 
+	 * <b>NOTE:</b> All external symbols will be omitted unless the full 
 	 * {@link AddressSpace#EXTERNAL_SPACE} range is included within the specified address set
 	 * or a null addressSet is specified.  All global dynamic label symbols will be omitted.
 	 * 
