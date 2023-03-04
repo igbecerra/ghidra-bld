@@ -47,10 +47,9 @@ import ghidra.framework.plugintool.annotation.AutoConfigStateField;
 import ghidra.framework.plugintool.annotation.AutoServiceConsumed;
 import ghidra.framework.plugintool.util.PluginStatus;
 import ghidra.lifecycle.Internal;
-import ghidra.trace.model.Trace;
+import ghidra.trace.model.*;
 import ghidra.trace.model.Trace.TraceObjectChangeType;
 import ghidra.trace.model.Trace.TraceThreadChangeType;
-import ghidra.trace.model.TraceDomainObjectListener;
 import ghidra.trace.model.guest.TracePlatform;
 import ghidra.trace.model.program.TraceProgramView;
 import ghidra.trace.model.program.TraceVariableSnapProgramView;
@@ -66,6 +65,7 @@ import ghidra.util.datastruct.CollectionChangeListener;
 import ghidra.util.exception.*;
 import ghidra.util.task.*;
 
+//@formatter:off
 @PluginInfo(
 	shortDescription = "Debugger Trace Management Plugin",
 	description = "Manages the set of open traces, current views, etc.",
@@ -86,6 +86,7 @@ import ghidra.util.task.*;
 	servicesProvided = {
 		DebuggerTraceManagerService.class,
 	})
+//@formatter:on
 public class DebuggerTraceManagerServicePlugin extends Plugin
 		implements DebuggerTraceManagerService {
 
@@ -160,13 +161,13 @@ public class DebuggerTraceManagerServicePlugin extends Plugin
 		public TransactionEndFuture(Trace trace) {
 			this.trace = trace;
 			this.trace.addTransactionListener(this);
-			if (this.trace.getCurrentTransaction() == null) {
+			if (this.trace.getCurrentTransactionInfo() == null) {
 				complete(null);
 			}
 		}
 
 		@Override
-		public void transactionStarted(DomainObjectAdapterDB domainObj, Transaction tx) {
+		public void transactionStarted(DomainObjectAdapterDB domainObj, TransactionInfo tx) {
 		}
 
 		@Override
@@ -282,8 +283,6 @@ public class DebuggerTraceManagerServicePlugin extends Plugin
 	@SuppressWarnings("unused")
 	private final AutoService.Wiring autoServiceWiring;
 
-	private DataTreeDialog traceChooserDialog;
-
 	DockingAction actionCloseTrace;
 	DockingAction actionCloseAllTraces;
 	DockingAction actionCloseOtherTraces;
@@ -393,9 +392,7 @@ public class DebuggerTraceManagerServicePlugin extends Plugin
 	}
 
 	protected DataTreeDialog getTraceChooserDialog() {
-		if (traceChooserDialog != null) {
-			return traceChooserDialog;
-		}
+
 		DomainFileFilter filter = new DomainFileFilter() {
 
 			@Override
@@ -410,21 +407,20 @@ public class DebuggerTraceManagerServicePlugin extends Plugin
 		};
 
 		// TODO regarding the hack note below, I believe this issue ahs been fixed, but not sure how to test
-		return traceChooserDialog =
-			new DataTreeDialog(null, OpenTraceAction.NAME, DataTreeDialog.OPEN, filter) {
-				{ // TODO/HACK: Why the NPE if I don't do this?
-					dialogShown();
-				}
-			};
+		return new DataTreeDialog(null, OpenTraceAction.NAME, DataTreeDialog.OPEN, filter) {
+			{ // TODO/HACK: Why the NPE if I don't do this?
+				dialogShown();
+			}
+		};
 	}
 
 	public DomainFile askTrace(Trace trace) {
-		getTraceChooserDialog();
+		DataTreeDialog dialog = getTraceChooserDialog();
 		if (trace != null) {
-			traceChooserDialog.selectDomainFile(trace.getDomainFile());
+			dialog.selectDomainFile(trace.getDomainFile());
 		}
-		tool.showDialog(traceChooserDialog);
-		return traceChooserDialog.getDomainFile();
+		tool.showDialog(dialog);
+		return dialog.getDomainFile();
 	}
 
 	@Override
@@ -644,7 +640,13 @@ public class DebuggerTraceManagerServicePlugin extends Plugin
 				inactive = curForTrace.snapNoResolve(snap);
 				lastCoordsByTrace.put(trace, inactive);
 			}
-			trace.getProgramView().setSnap(snap);
+			try {
+				trace.getProgramView().setSnap(snap);
+			}
+			catch (TraceClosedException e) {
+				// Whatever. Presumably, a closed event is already queued....
+				Msg.warn(this, "Ignoring snapshot advance for closed trace: " + e);
+			}
 			firePluginEvent(new TraceInactiveCoordinatesPluginEvent(getName(), inactive));
 			return;
 		}
@@ -775,12 +777,13 @@ public class DebuggerTraceManagerServicePlugin extends Plugin
 		if (coordinates.getTime().isSnapOnly()) {
 			return coordinates.getSnap();
 		}
-		Collection<? extends TraceSnapshot> suitable = coordinates.getTrace()
-				.getTimeManager()
-				.getSnapshotsWithSchedule(coordinates.getTime());
-		if (!suitable.isEmpty()) {
-			TraceSnapshot found = suitable.iterator().next();
-			return found.getKey();
+		Trace trace = coordinates.getTrace();
+		long version = trace.getEmulatorCacheVersion();
+		for (TraceSnapshot snapshot : trace.getTimeManager()
+				.getSnapshotsWithSchedule(coordinates.getTime())) {
+			if (snapshot.getVersion() >= version) {
+				return snapshot.getKey();
+			}
 		}
 		return null;
 	}

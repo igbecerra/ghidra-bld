@@ -24,6 +24,7 @@ import org.apache.commons.collections4.bidimap.DualHashBidiMap;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 
+import db.Transaction;
 import ghidra.dbg.DebuggerObjectModel;
 import ghidra.dbg.attributes.TargetDataType;
 import ghidra.dbg.target.*;
@@ -45,7 +46,6 @@ import ghidra.trace.model.target.*;
 import ghidra.trace.model.thread.TraceObjectThread;
 import ghidra.trace.model.thread.TraceThread;
 import ghidra.util.Msg;
-import ghidra.util.database.UndoableTransaction;
 import utilities.util.IDKeyed;
 
 class ObjectRecorder {
@@ -64,8 +64,7 @@ class ObjectRecorder {
 		this.isSupportsFocus = !schema.searchFor(TargetFocusScope.class, false).isEmpty();
 		this.isSupportsActivation = !schema.searchFor(TargetActiveScope.class, false).isEmpty();
 
-		try (UndoableTransaction tid =
-			UndoableTransaction.start(recorder.trace, "Create root")) {
+		try (Transaction tx = recorder.trace.openTransaction("Create root")) {
 			objectManager.createRootObject(schema);
 		}
 	}
@@ -314,13 +313,14 @@ class ObjectRecorder {
 	}
 
 	protected <T extends TargetObject> List<T> collectTargetSuccessors(TargetObject targetSeed,
-			Class<T> targetIf) {
+			Class<T> targetIf, boolean requireCanonical) {
 		// TODO: Should this really go through the database?
 		TraceObject seed = toTrace(targetSeed);
 		if (seed == null) {
 			return List.of();
 		}
-		return seed.querySuccessorsTargetInterface(Lifespan.at(recorder.getSnap()), targetIf)
+		return seed.querySuccessorsTargetInterface(Lifespan.at(recorder.getSnap()), targetIf,
+			requireCanonical)
 				.map(p -> toTarget(p.getDestination(seed)).as(targetIf))
 				.collect(Collectors.toList());
 	}

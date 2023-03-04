@@ -131,7 +131,16 @@ class MemoryMapProvider extends ComponentProviderAdapter {
 
 		memTable.setAutoCreateColumnsFromModel(false);
 
-		TableColumn column;
+		GTableCellRenderer monoRenderer = new GTableCellRenderer();
+		monoRenderer.setFont(monoRenderer.getFixedWidthFont());
+
+		TableColumn column = memTable.getColumn(MemoryMapModel.START_COL);
+		column.setCellRenderer(monoRenderer);
+		column = memTable.getColumn(MemoryMapModel.END_COL);
+		column.setCellRenderer(monoRenderer);
+		column = memTable.getColumn(MemoryMapModel.LENGTH_COL);
+		column.setCellRenderer(monoRenderer);
+
 		column = memTable.getColumn(MemoryMapModel.READ_COL);
 		column.setCellRenderer(new GBooleanCellRenderer());
 		column = memTable.getColumn(MemoryMapModel.WRITE_COL);
@@ -614,8 +623,11 @@ class MemoryMapProvider extends ComponentProviderAdapter {
 		else {
 			model = new ExpandBlockDownModel(tool, program);
 		}
-		new ExpandBlockDialog(tool, model, block, program.getAddressFactory(), dialogType);
+
+		ExpandBlockDialog dialog =
+			new ExpandBlockDialog(tool, model, block, program.getAddressFactory(), dialogType);
 		model.initialize(block);
+		dialog.dispose();
 	}
 
 	private void showMoveBlockDialog(MemoryBlock block) {
